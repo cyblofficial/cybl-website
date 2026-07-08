@@ -1,5 +1,6 @@
 import Header from "./components/layout/Header";
 import Hero from "./components/home/Hero";
+import AboutSection from "./components/home/AboutSection";
 import UpcomingTournament from "./components/home/UpcomingTournament";
 
 export default function Home() {
@@ -7,6 +8,7 @@ export default function Home() {
     <>
       <Header />
       <Hero />
+      <AboutSection />
       <UpcomingTournament />
     </>
   );
