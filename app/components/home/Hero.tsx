@@ -12,9 +12,12 @@ export default function Hero() {
 
   return (
     <section className="relative min-h-screen overflow-hidden bg-[#050816] text-white">
-      <div className="absolute inset-0 bg-[url('/hero-basketball.png')] bg-cover bg-center opacity-50" />
-      <div className="absolute inset-0 bg-gradient-to-r from-[#050816] via-[#050816]/85 to-[#050816]/25" />
-      <div className="absolute inset-0 bg-gradient-to-t from-[#050816] via-transparent to-[#050816]/70" />
+      <div className="absolute inset-0 bg-[url('/hero-basketball.png')] bg-cover bg-center opacity-75" />
+      <div className="absolute inset-0 bg-gradient-to-r from-[#050816] via-[#050816]/65 to-[#050816]/10" />
+      <div className="absolute inset-0 bg-gradient-to-t from-[#050816] via-transparent to-[#050816]/50" />
+
+      <div className="absolute left-[-120px] top-32 h-80 w-80 rounded-full bg-orange-500/25 blur-3xl" />
+      <div className="absolute right-[-100px] bottom-20 h-96 w-96 rounded-full bg-orange-400/15 blur-3xl" />
 
       <div className="relative z-10 mx-auto flex min-h-screen max-w-7xl items-center px-6 py-24">
         <div className="max-w-4xl">
@@ -22,14 +25,12 @@ export default function Hero() {
             Caucasus Youth Basketball League
           </p>
 
-          <h1 className="mb-5 text-4xl font-black leading-tight md:text-6xl lg:text-7xl">
+          <h1 className="mb-5 text-4xl font-black leading-tight text-orange-400 md:text-6xl lg:text-7xl">
             The Future of
-            <span className="block bg-gradient-to-r from-orange-400 to-yellow-200 bg-clip-text text-transparent">
-              Basketball Starts Here
-            </span>
+            <span className="block">Basketball Starts Here</span>
           </h1>
 
-          <p className="mb-8 max-w-2xl text-lg leading-relaxed text-gray-300 md:text-xl">
+          <p className="mb-8 max-w-2xl text-lg leading-relaxed text-gray-200 md:text-xl">
             CYBL connects young athletes, clubs and countries through premium
             international youth basketball tournaments, education and long-term
             player development.
@@ -38,7 +39,7 @@ export default function Hero() {
           <div className="mb-9 flex flex-wrap gap-4">
             <a
               href="#registration"
-              className="rounded-full bg-orange-500 px-8 py-4 font-bold text-white transition hover:bg-orange-600"
+              className="rounded-full bg-orange-500 px-8 py-4 font-bold text-white shadow-xl shadow-orange-500/25 transition hover:-translate-y-1 hover:bg-orange-600"
             >
               Register Now
             </a>
@@ -46,7 +47,7 @@ export default function Hero() {
             <a
               href="/documents/CYBL_Summer_League_2026_Official_Regulations.pdf"
               target="_blank"
-              className="rounded-full border border-white/25 bg-white/10 px-8 py-4 font-bold text-white backdrop-blur-md transition hover:bg-white hover:text-[#050816]"
+              className="rounded-full border border-white/25 bg-white/10 px-8 py-4 font-bold text-white backdrop-blur-md transition hover:-translate-y-1 hover:bg-white hover:text-[#050816]"
             >
               Official Regulations
             </a>
@@ -61,12 +62,12 @@ export default function Hero() {
             ].map(([number, label]) => (
               <div
                 key={label}
-                className="rounded-3xl border border-white/10 bg-white/10 p-5 backdrop-blur-xl"
+                className="rounded-3xl border border-white/10 bg-white/10 p-5 backdrop-blur-xl transition hover:-translate-y-1 hover:bg-white/15"
               >
                 <h3 className="text-3xl font-black text-orange-400 md:text-4xl">
                   {number}
                 </h3>
-                <p className="mt-1 text-xs uppercase tracking-widest text-gray-300 md:text-sm">
+                <p className="mt-1 text-xs uppercase tracking-widest text-gray-200 md:text-sm">
                   {label}
                 </p>
               </div>
@@ -93,7 +94,7 @@ export default function Hero() {
                 </span>
               ))}
 
-              <span className="flex items-center gap-2 rounded-full border border-white/5 bg-white/5 px-4 py-2 text-xs font-medium text-gray-500 opacity-50">
+              <span className="flex items-center gap-2 rounded-full border border-white/5 bg-white/5 px-4 py-2 text-xs font-medium text-gray-400 opacity-50">
                 <img
                   src="https://flagcdn.com/w40/ru.png"
                   alt="Russia"
