@@ -13,7 +13,6 @@ function Counter({ target, suffix = "+" }: { target: number; suffix?: string }) 
 
     const timer = setInterval(() => {
       current += increment;
-
       if (current >= target) {
         setCount(target);
         clearInterval(timer);
@@ -30,6 +29,49 @@ function Counter({ target, suffix = "+" }: { target: number; suffix?: string }) 
       {count}
       {suffix}
     </>
+  );
+}
+
+function Countdown() {
+  const [daysLeft, setDaysLeft] = useState<number | null>(null);
+
+  useEffect(() => {
+    const updateCountdown = () => {
+      const eventDate = new Date("2026-09-01T00:00:00");
+      const now = new Date();
+      const diff = eventDate.getTime() - now.getTime();
+      const days = Math.max(0, Math.ceil(diff / (1000 * 60 * 60 * 24)));
+      setDaysLeft(days);
+    };
+
+    updateCountdown();
+    const timer = setInterval(updateCountdown, 1000 * 60 * 60);
+
+    return () => clearInterval(timer);
+  }, []);
+
+  return (
+    <div className="mb-10 inline-flex flex-wrap items-center gap-4 rounded-3xl border border-orange-500/25 bg-white/10 px-6 py-4 backdrop-blur-xl">
+      <div>
+        <p className="text-xs font-bold uppercase tracking-[0.28em] text-orange-400">
+          Next Tournament
+        </p>
+        <h3 className="mt-1 text-xl font-black text-white md:text-2xl">
+          1–5 September 2026
+        </h3>
+      </div>
+
+      <div className="hidden h-12 w-px bg-white/15 sm:block" />
+
+      <div>
+        <p className="text-xs font-bold uppercase tracking-[0.28em] text-gray-400">
+          Countdown
+        </p>
+        <h3 className="mt-1 text-2xl font-black text-orange-400 md:text-3xl">
+          {daysLeft === null ? "..." : `${daysLeft} DAYS`}
+        </h3>
+      </div>
+    </div>
   );
 }
 
@@ -56,17 +98,14 @@ export default function Hero() {
 
   return (
     <section className="relative min-h-screen overflow-hidden bg-[#050816] text-white">
-      {/* Background */}
       <div className="absolute inset-0 bg-[url('/hero-basketball.png')] bg-cover bg-center opacity-95" />
       <div className="absolute inset-0 bg-gradient-to-r from-[#050816] via-[#050816]/68 to-[#050816]/15" />
       <div className="absolute inset-0 bg-gradient-to-t from-[#050816] via-[#050816]/15 to-[#050816]/45" />
 
-      {/* Cinematic light */}
       <div className="absolute left-[-220px] top-44 h-[520px] w-[520px] animate-pulse rounded-full bg-orange-500/20 blur-[180px]" />
       <div className="absolute right-[-140px] bottom-0 h-[620px] w-[620px] animate-pulse rounded-full bg-orange-400/25 blur-[220px]" />
       <div className="absolute left-1/2 top-1/3 h-[320px] w-[320px] -translate-x-1/2 rounded-full bg-yellow-400/10 blur-[140px]" />
 
-      {/* Floating particles */}
       <div className="pointer-events-none absolute inset-0 z-[2] hidden md:block">
         {particles.map((_, index) => (
           <span
@@ -82,7 +121,6 @@ export default function Hero() {
         ))}
       </div>
 
-      {/* Player */}
       <div className="absolute bottom-[-45px] right-[-55px] z-[3] hidden h-[92%] w-[56%] xl:block">
         <div className="absolute bottom-20 right-24 h-[450px] w-[450px] rounded-full bg-orange-500/20 blur-[180px]" />
 
@@ -93,7 +131,6 @@ export default function Hero() {
         />
       </div>
 
-      {/* Mobile player background hint */}
       <div className="absolute bottom-0 right-[-90px] z-[1] block h-[55%] w-[75%] opacity-30 md:hidden">
         <img
           src="/hero-player.png"
@@ -102,7 +139,6 @@ export default function Hero() {
         />
       </div>
 
-      {/* Content */}
       <div className="relative z-10 mx-auto flex min-h-screen max-w-7xl items-center px-6 py-24">
         <div className="max-w-4xl">
           <div className="mb-6 inline-flex items-center gap-3 rounded-full border border-orange-400/30 bg-orange-500/10 px-5 py-2 backdrop-blur-xl">
@@ -120,11 +156,13 @@ export default function Hero() {
             </span>
           </h1>
 
-          <p className="mb-10 max-w-2xl text-lg leading-relaxed text-gray-200 md:text-xl">
+          <p className="mb-8 max-w-2xl text-lg leading-relaxed text-gray-200 md:text-xl">
             CYBL connects young athletes, clubs and countries through premium
             international youth basketball tournaments, education and long-term
             player development.
           </p>
+
+          <Countdown />
 
           <div className="mb-10 flex flex-wrap gap-4">
             <a
@@ -194,7 +232,6 @@ export default function Hero() {
         </div>
       </div>
 
-      {/* Bottom fade */}
       <div className="pointer-events-none absolute bottom-0 left-0 right-0 h-28 bg-gradient-to-t from-[#050816] to-transparent" />
     </section>
   );

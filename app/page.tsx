@@ -1,6 +1,7 @@
 import Header from "./components/layout/Header";
 import Hero from "./components/home/Hero";
 import LiveBanner from "./components/home/LiveBanner";
+import LiveCenter from "./components/home/LiveCenter";
 import WhyCYBL from "./components/home/WhyCYBL";
 import UpcomingTournament from "./components/home/UpcomingTournament";
 import AboutSection from "./components/home/AboutSection";
@@ -14,6 +15,7 @@ export default function Home() {
       <Header />
       <Hero />
       <LiveBanner />
+      <LiveCenter />
       <WhyCYBL />
       <UpcomingTournament />
       <AboutSection />

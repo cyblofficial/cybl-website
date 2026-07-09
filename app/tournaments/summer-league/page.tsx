@@ -48,7 +48,9 @@ export default function SummerLeaguePage() {
               <p className="text-sm uppercase tracking-widest text-yellow-500">
                 Dates
               </p>
-              <h3 className="mt-3 text-2xl font-bold">August 20–24, 2026</h3>
+              <h3 className="mt-3 text-2xl font-bold">
+                September 1–5, 2026
+              </h3>
             </div>
 
             <div className="rounded-2xl border border-white/10 bg-white/5 p-6">
