@@ -12,7 +12,7 @@ export default function LiveBanner() {
           </h2>
 
           <p className="mt-2 text-gray-300">
-            18–24 August | Telavi, Georgia
+            20–24 August | Telavi, Georgia
           </p>
         </div>
 
