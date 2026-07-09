@@ -14,8 +14,7 @@ export default function Footer() {
 
           <p className="mt-5 max-w-md leading-relaxed text-gray-400">
             Caucasus Youth Basketball League is building an international youth
-            basketball platform connecting players, clubs and countries through
-            premium competition and development.
+            basketball platform connecting players, clubs and countries.
           </p>
         </div>
 
@@ -23,12 +22,12 @@ export default function Footer() {
           <h4 className="mb-4 font-black text-orange-400">Navigation</h4>
           <div className="flex flex-col gap-3 text-gray-400">
             <a href="/" className="hover:text-white">Home</a>
-            <a href="#about" className="hover:text-white">About</a>
+            <a href="/#about" className="hover:text-white">About</a>
             <a href="/tournaments/summer-league" className="hover:text-white">
               Tournaments
             </a>
-            <a href="#news" className="hover:text-white">News</a>
-            <a href="#contact" className="hover:text-white">Contact</a>
+            <a href="/#news" className="hover:text-white">News</a>
+            <a href="/#contact" className="hover:text-white">Contact</a>
           </div>
         </div>
 
@@ -36,11 +35,9 @@ export default function Footer() {
           <h4 className="mb-4 font-black text-orange-400">Contact</h4>
           <div className="flex flex-col gap-3 text-gray-400">
             <a href="mailto:telavicybl@gmail.com" className="hover:text-white">
-  telavicybl@gmail.com
-</a>
-            <a href="#contact" className="hover:text-white">
-              Registration & inquiries
+              telavicybl@gmail.com
             </a>
+            <span>Registration & inquiries</span>
             <span>Telavi, Georgia</span>
           </div>
         </div>
