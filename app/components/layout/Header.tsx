@@ -26,48 +26,56 @@ export default function Header() {
   ];
 
   return (
-    <header className="sticky top-0 z-50 border-b border-gray-200 bg-white/95 shadow-sm backdrop-blur-xl">
-      <div className="h-[3px] w-full bg-gradient-to-r from-orange-500 via-yellow-400 to-orange-500" />
+    <header className="sticky top-0 z-50 border-b border-orange-200 bg-[#FFF8F0]/95 shadow-sm backdrop-blur-xl">
+      <div className="h-[2px] w-full bg-gradient-to-r from-orange-500 via-yellow-400 to-orange-500" />
 
       <div
         className={`mx-auto flex max-w-7xl items-center justify-between px-6 transition-all duration-300 ${
-          scrolled ? "py-2" : "py-3"
+          scrolled ? "py-0.5" : "py-1"
         }`}
       >
-        <a href="/" className="z-50">
-          <Image
-            src="/logo/CYBL_logo.svg"
-            alt="CYBL Logo"
-            width={scrolled ? 70 : 82}
-            height={scrolled ? 70 : 82}
-            className="transition-all duration-300"
-            priority
-          />
-        </a>
+        <div className="relative">
+          <div className="absolute left-1/2 top-1/2 h-12 w-12 -translate-x-1/2 -translate-y-1/2 rounded-full bg-yellow-400/15 blur-2xl" />
 
-        <nav className="hidden items-center gap-8 text-sm font-bold text-[#4B0F1F] md:flex">
+          <a
+            href="/"
+            className="relative z-50 rounded-full p-0.5 transition duration-300 hover:scale-105"
+          >
+            <Image
+              src="/logo/CYBL_logo.svg"
+              alt="CYBL Logo"
+              width={scrolled ? 52 : 60}
+              height={scrolled ? 52 : 60}
+              priority
+              className="transition-all duration-300"
+            />
+          </a>
+        </div>
+
+        <nav className="hidden items-center gap-9 text-[14px] font-bold text-[#4B0F1F] md:flex">
           {links.map((item) => (
             <a
               key={item.label}
               href={item.href}
-              className="relative transition hover:text-orange-500 after:absolute after:-bottom-2 after:left-0 after:h-[2px] after:w-0 after:bg-orange-500 after:transition-all hover:after:w-full"
+              className="group relative transition duration-300 hover:text-orange-500"
             >
               {item.label}
+              <span className="absolute -bottom-2 left-0 h-[2px] w-0 bg-orange-500 transition-all duration-300 group-hover:w-full" />
             </a>
           ))}
         </nav>
 
         <a
           href="/tournaments/summer-league"
-          className="hidden rounded-full bg-orange-500 px-7 py-3 font-bold text-white transition hover:scale-105 hover:bg-orange-600 md:inline-flex"
+          className="hidden rounded-full bg-orange-500 px-6 py-2.5 font-bold text-white shadow-lg shadow-orange-500/25 transition duration-300 hover:-translate-y-0.5 hover:bg-orange-600 hover:shadow-orange-500/50 md:inline-flex"
         >
-          Register
+          Register →
         </a>
 
         <button
           onClick={() => setOpen(!open)}
-          className="z-50 flex h-11 w-11 flex-col items-center justify-center gap-1.5 rounded-full border border-gray-300 bg-white md:hidden"
           aria-label="Menu"
+          className="z-50 flex h-10 w-10 flex-col items-center justify-center gap-1.5 rounded-full border border-orange-200 bg-white md:hidden"
         >
           <span
             className={`h-0.5 w-5 bg-[#4B0F1F] transition ${
@@ -88,7 +96,7 @@ export default function Header() {
       </div>
 
       <div
-        className={`fixed inset-0 z-40 bg-white/95 backdrop-blur-xl transition-all duration-300 md:hidden ${
+        className={`fixed inset-0 z-40 bg-[#FFF8F0]/95 backdrop-blur-xl transition-all duration-300 md:hidden ${
           open ? "translate-x-0 opacity-100" : "translate-x-full opacity-0"
         }`}
       >
@@ -107,7 +115,7 @@ export default function Header() {
           <a
             href="/tournaments/summer-league"
             onClick={() => setOpen(false)}
-            className="rounded-full bg-orange-500 px-8 py-4 text-base text-white transition hover:bg-orange-600"
+            className="mt-4 rounded-full bg-orange-500 px-8 py-4 text-base font-bold text-white shadow-lg shadow-orange-500/30 transition hover:bg-orange-600"
           >
             Register Now
           </a>
