@@ -27,31 +27,36 @@ export default function Header() {
 
   return (
     <header className="sticky top-0 z-50 border-b border-orange-200 bg-[#FFF8F0]/95 shadow-sm backdrop-blur-xl">
+      {/* Top Gold Line */}
       <div className="h-[2px] w-full bg-gradient-to-r from-orange-500 via-yellow-400 to-orange-500" />
 
       <div
         className={`mx-auto flex max-w-7xl items-center justify-between px-6 transition-all duration-300 ${
-          scrolled ? "py-0.5" : "py-1"
+          scrolled ? "py-1" : "py-1.5"
         }`}
       >
-        <div className="relative">
-          <div className="absolute left-1/2 top-1/2 h-12 w-12 -translate-x-1/2 -translate-y-1/2 rounded-full bg-yellow-400/15 blur-2xl" />
+        {/* Logo */}
+        <div className="relative flex items-center">
+          <div className="absolute left-1/2 top-1/2 h-14 w-14 -translate-x-1/2 -translate-y-1/2 rounded-full bg-yellow-400/15 blur-2xl" />
 
           <a
             href="/"
-            className="relative z-50 rounded-full p-0.5 transition duration-300 hover:scale-105"
+            className="relative z-50 flex items-center transition duration-300 hover:scale-105"
           >
             <Image
               src="/logo/CYBL_logo.svg"
               alt="CYBL Logo"
-              width={scrolled ? 52 : 60}
-              height={scrolled ? 52 : 60}
+              width={72}
+              height={72}
               priority
-              className="transition-all duration-300"
+              className={`object-contain transition-all duration-300 ${
+                scrolled ? "h-[58px] w-[58px]" : "h-[68px] w-[68px]"
+              }`}
             />
           </a>
         </div>
 
+        {/* Desktop Menu */}
         <nav className="hidden items-center gap-9 text-[14px] font-bold text-[#4B0F1F] md:flex">
           {links.map((item) => (
             <a
@@ -60,11 +65,13 @@ export default function Header() {
               className="group relative transition duration-300 hover:text-orange-500"
             >
               {item.label}
+
               <span className="absolute -bottom-2 left-0 h-[2px] w-0 bg-orange-500 transition-all duration-300 group-hover:w-full" />
             </a>
           ))}
         </nav>
 
+        {/* Register Button */}
         <a
           href="/tournaments/summer-league"
           className="hidden rounded-full bg-orange-500 px-6 py-2.5 font-bold text-white shadow-lg shadow-orange-500/25 transition duration-300 hover:-translate-y-0.5 hover:bg-orange-600 hover:shadow-orange-500/50 md:inline-flex"
@@ -72,6 +79,7 @@ export default function Header() {
           Register →
         </a>
 
+        {/* Mobile Menu Button */}
         <button
           onClick={() => setOpen(!open)}
           aria-label="Menu"
@@ -82,11 +90,13 @@ export default function Header() {
               open ? "translate-y-2 rotate-45" : ""
             }`}
           />
+
           <span
             className={`h-0.5 w-5 bg-[#4B0F1F] transition ${
               open ? "opacity-0" : ""
             }`}
           />
+
           <span
             className={`h-0.5 w-5 bg-[#4B0F1F] transition ${
               open ? "-translate-y-2 -rotate-45" : ""
@@ -95,6 +105,7 @@ export default function Header() {
         </button>
       </div>
 
+      {/* Mobile Menu */}
       <div
         className={`fixed inset-0 z-40 bg-[#FFF8F0]/95 backdrop-blur-xl transition-all duration-300 md:hidden ${
           open ? "translate-x-0 opacity-100" : "translate-x-full opacity-0"
