@@ -39,7 +39,7 @@ export default function UpcomingTournament() {
             </p>
 
             <h3 className="mt-3 text-2xl font-bold">
-              August 20–24, 2026
+              September 1–5, 2026
             </h3>
           </div>
 

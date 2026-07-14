@@ -1,24 +1,45 @@
+export type TournamentGroup = "A" | "B";
+
 export interface Team {
   id: string;
   name: string;
   country: string;
   flag: string;
   logo: string;
+  group: TournamentGroup;
 }
 
 export type GameStatus = "UPCOMING" | "LIVE" | "FINISHED";
 
 export interface Game {
   id: string;
+
+  stage: "GROUP" | "PLACEMENT";
+
   date: string;
   time: string;
   court: string;
   category: string;
+
   home: string;
   away: string;
+
   homeScore: number;
   awayScore: number;
+
   status: GameStatus;
+
+  group?: TournamentGroup;
+
+  quarter?: string;
+  gameClock?: string;
+
+  homeFouls?: number;
+  awayFouls?: number;
+
+  homeTimeouts?: number;
+  awayTimeouts?: number;
+
   youtube?: string;
 }
 
