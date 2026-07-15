@@ -78,6 +78,17 @@ type GameEventRow = {
   created_at: string;
 };
 
+type GameRosterRow = {
+  id: string;
+  game_id: string;
+  team_id: string;
+  player_id: string;
+  jersey_number: number | null;
+  is_selected: boolean;
+  is_starter: boolean;
+  is_on_court: boolean;
+};
+
 type FeedbackState = {
   type: "saving" | "success" | "error";
   message: string;
@@ -372,6 +383,10 @@ export default function ScorerPage() {
   const [players, setPlayers] = useState<PlayerRow[]>([]);
   const [games, setGames] = useState<GameRow[]>([]);
   const [events, setEvents] = useState<GameEventRow[]>([]);
+  const [gameRosters, setGameRosters] = useState<GameRosterRow[]>([]);
+  const [subOutPlayerId, setSubOutPlayerId] = useState("");
+  const [substitutionTeamId, setSubstitutionTeamId] = useState("");
+  const [substitutionSaving, setSubstitutionSaving] = useState(false);
 
   const [selectedGameId, setSelectedGameId] = useState("");
   const [selectedTeamId, setSelectedTeamId] = useState("");
@@ -435,15 +450,88 @@ export default function ScorerPage() {
     [players, selectedPlayerId]
   );
 
-  const selectedTeamPlayers = useMemo(
+  const selectedGameRosterRows = useMemo(
+    () =>
+      gameRosters.filter(
+        (row) =>
+          row.game_id === selectedGameId &&
+          row.is_selected
+      ),
+    [gameRosters, selectedGameId]
+  );
+
+  const rosterPlayerIds = useMemo(
+    () =>
+      new Set(
+        selectedGameRosterRows.map((row) => row.player_id)
+      ),
+    [selectedGameRosterRows]
+  );
+
+  const rosterPlayers = useMemo(
     () =>
       players
-        .filter((player) => player.team_id === selectedTeamId)
+        .filter((player) => rosterPlayerIds.has(player.id))
         .sort(
           (a, b) =>
-            (a.jersey_number ?? 999) - (b.jersey_number ?? 999)
+            (a.jersey_number ?? 999) -
+            (b.jersey_number ?? 999)
         ),
-    [players, selectedTeamId]
+    [players, rosterPlayerIds]
+  );
+
+  const selectedTeamPlayers = useMemo(
+    () =>
+      rosterPlayers.filter(
+        (player) => player.team_id === selectedTeamId
+      ),
+    [rosterPlayers, selectedTeamId]
+  );
+
+  const homeRosterPlayers = useMemo(
+    () =>
+      rosterPlayers.filter(
+        (player) =>
+          player.team_id === selectedGame?.home_team_id
+      ),
+    [rosterPlayers, selectedGame]
+  );
+
+  const awayRosterPlayers = useMemo(
+    () =>
+      rosterPlayers.filter(
+        (player) =>
+          player.team_id === selectedGame?.away_team_id
+      ),
+    [rosterPlayers, selectedGame]
+  );
+
+  function getRosterRow(playerId: string) {
+    return gameRosters.find(
+      (row) =>
+        row.game_id === selectedGameId &&
+        row.player_id === playerId
+    );
+  }
+
+  function isPlayerOnCourt(playerId: string) {
+    return getRosterRow(playerId)?.is_on_court ?? false;
+  }
+
+  const selectedTeamOnCourtPlayers = useMemo(
+    () =>
+      selectedTeamPlayers.filter((player) =>
+        isPlayerOnCourt(player.id)
+      ),
+    [selectedTeamPlayers, gameRosters]
+  );
+
+  const selectedTeamBenchPlayers = useMemo(
+    () =>
+      selectedTeamPlayers.filter(
+        (player) => !isPlayerOnCourt(player.id)
+      ),
+    [selectedTeamPlayers, gameRosters]
   );
 
   const editPlayers = useMemo(() => {
@@ -601,7 +689,10 @@ export default function ScorerPage() {
       setSelectedGameId(firstGame.id);
       applyGameState(firstGame);
 
-      await loadGameEvents(firstGame.id);
+      await Promise.all([
+        loadGameEvents(firstGame.id),
+        loadGameRosters(firstGame.id),
+      ]);
     }
 
     setLoading(false);
@@ -665,6 +756,32 @@ export default function ScorerPage() {
       .eq("id", selectedGameId);
   }
 
+  async function loadGameRosters(gameId: string) {
+    const { data, error } = await supabase
+      .from("game_rosters")
+      .select(
+        `
+        id,
+        game_id,
+        team_id,
+        player_id,
+        jersey_number,
+        is_selected,
+        is_starter,
+        is_on_court
+        `
+      )
+      .eq("game_id", gameId)
+      .eq("is_selected", true);
+
+    if (error) {
+      setErrorMessage(error.message);
+      return;
+    }
+
+    setGameRosters((data ?? []) as GameRosterRow[]);
+  }
+
   async function loadGameEvents(gameId: string) {
     const { data, error } = await supabase
       .from("game_events")
@@ -714,6 +831,8 @@ export default function ScorerPage() {
     setSelectedGameId(gameId);
     setSelectedTeamId("");
     setSelectedPlayerId("");
+    setSubOutPlayerId("");
+    setSubstitutionTeamId("");
     setEditingEvent(null);
     setFeedback(null);
     setReportMode("FULL");
@@ -724,7 +843,10 @@ export default function ScorerPage() {
       applyGameState(game);
     }
 
-    await loadGameEvents(gameId);
+    await Promise.all([
+      loadGameEvents(gameId),
+      loadGameRosters(gameId),
+    ]);
   }
 
   useEffect(() => {
@@ -754,6 +876,18 @@ export default function ScorerPage() {
         },
         () => {
           void refreshSelectedGame();
+        }
+      )
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "game_rosters",
+          filter: `game_id=eq.${selectedGameId}`,
+        },
+        () => {
+          void loadGameRosters(selectedGameId);
         }
       )
       .subscribe();
@@ -978,6 +1112,146 @@ export default function ScorerPage() {
 
     await refreshSelectedGame();
     setSaving(false);
+  }
+
+  async function makeSubstitution(subInPlayerId: string) {
+    if (
+      !selectedGame ||
+      !subOutPlayerId ||
+      !subInPlayerId ||
+      substitutionSaving
+    ) {
+      return;
+    }
+
+    const outRow = getRosterRow(subOutPlayerId);
+    const inRow = getRosterRow(subInPlayerId);
+
+    if (!outRow || !inRow) {
+      showFeedback("error", "ROSTER PLAYER NOT FOUND");
+      return;
+    }
+
+    if (outRow.team_id !== inRow.team_id) {
+      showFeedback(
+        "error",
+        "SUBSTITUTION PLAYERS MUST BE FROM THE SAME TEAM"
+      );
+      return;
+    }
+
+    if (!outRow.is_on_court) {
+      showFeedback(
+        "error",
+        "SELECT AN ON-COURT PLAYER TO SUB OUT"
+      );
+      return;
+    }
+
+    if (inRow.is_on_court) {
+      showFeedback(
+        "error",
+        "THIS PLAYER IS ALREADY ON COURT"
+      );
+      return;
+    }
+
+    setSubstitutionSaving(true);
+    setSaving(true);
+    showFeedback("saving", "SAVING SUBSTITUTION...", false);
+
+    try {
+      const { error: outError } = await supabase
+        .from("game_rosters")
+        .update({
+          is_on_court: false,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", outRow.id);
+
+      if (outError) throw outError;
+
+      const { error: inError } = await supabase
+        .from("game_rosters")
+        .update({
+          is_on_court: true,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", inRow.id);
+
+      if (inError) {
+        await supabase
+          .from("game_rosters")
+          .update({
+            is_on_court: true,
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", outRow.id);
+
+        throw inError;
+      }
+
+      const { error: eventsError } = await supabase
+        .from("game_events")
+        .insert([
+          {
+            game_id: selectedGame.id,
+            team_id: outRow.team_id,
+            player_id: subOutPlayerId,
+            event_type: "SUBSTITUTION_OUT",
+            period: quarter,
+            game_clock: clockRef.current,
+          },
+          {
+            game_id: selectedGame.id,
+            team_id: inRow.team_id,
+            player_id: subInPlayerId,
+            event_type: "SUBSTITUTION_IN",
+            period: quarter,
+            game_clock: clockRef.current,
+          },
+        ]);
+
+      if (eventsError) throw eventsError;
+
+      const outPlayer = players.find(
+        (player) => player.id === subOutPlayerId
+      );
+
+      const inPlayer = players.find(
+        (player) => player.id === subInPlayerId
+      );
+
+      await Promise.all([
+        loadGameRosters(selectedGame.id),
+        loadGameEvents(selectedGame.id),
+      ]);
+
+      setSubOutPlayerId("");
+      setSubstitutionTeamId("");
+
+      if (selectedPlayerId === subOutPlayerId) {
+        setSelectedPlayerId(subInPlayerId);
+      }
+
+      showFeedback(
+        "success",
+        `SUBSTITUTION · #${
+          outPlayer?.jersey_number ?? "-"
+        } OUT → #${inPlayer?.jersey_number ?? "-"} IN`
+      );
+    } catch (error) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : "Substitution failed";
+
+      setErrorMessage(message);
+      showFeedback("error", "SUBSTITUTION NOT SAVED");
+    } finally {
+      setSubstitutionSaving(false);
+      setSaving(false);
+    }
   }
 
   async function addEvent(eventType: GameEventType) {
@@ -1328,209 +1602,316 @@ export default function ScorerPage() {
               </select>
             </section>
 
-            <section className="mt-6 grid gap-5 md:grid-cols-[1fr_auto_1fr] md:items-center">
-              <TeamButton
-                label="HOME"
-                team={homeTeam}
-                score={selectedGame?.home_score ?? 0}
-                selected={
-                  selectedTeamId === selectedGame?.home_team_id
-                }
-                onClick={() => {
-                  setSelectedTeamId(
-                    selectedGame?.home_team_id ?? ""
-                  );
-                  setSelectedPlayerId("");
-                }}
-              />
+            <section className="mt-4 rounded-3xl border border-white/10 bg-white/10 p-3">
+              <div className="grid gap-3 xl:grid-cols-[1fr_330px_1fr]">
+                <div className="rounded-2xl bg-[#081321] p-3">
+                  <div className="mb-3 flex items-center justify-between gap-3">
+                    <div>
+                      <p className="text-[11px] font-black uppercase tracking-[0.2em] text-gray-400">HOME</p>
+                      <h2 className="text-xl font-black">{homeTeam?.short_name || homeTeam?.name || "HOME"}</h2>
+                    </div>
+                    <div className="text-5xl font-black text-orange-400">{selectedGame?.home_score ?? 0}</div>
+                  </div>
 
-              <div className="text-center font-black">
-                VS
+                  <div className="grid grid-cols-5 gap-2">
+                    {homeRosterPlayers.filter((player) => isPlayerOnCourt(player.id)).map((player) => (
+                      <button
+                        key={player.id}
+                        onClick={() => {
+                          setSelectedTeamId(selectedGame?.home_team_id ?? "");
+                          setSelectedPlayerId(player.id);
+                        }}
+                        className={`min-w-0 rounded-xl border px-2 py-3 text-center transition active:scale-95 ${
+                          selectedPlayerId === player.id
+                            ? "border-orange-400 bg-orange-500/25"
+                            : "border-green-500/30 bg-green-500/10"
+                        }`}
+                      >
+                        <div className="text-xl font-black">#{player.jersey_number ?? "-"}</div>
+                        <div className="mt-1 truncate text-[11px] font-bold">{player.first_name}</div>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="rounded-2xl border border-orange-500/30 bg-[#050816] p-3 text-center">
+                  <div className="flex items-center justify-center gap-3">
+                    <select
+                      value={quarter}
+                      onChange={(event) => setQuarter(event.target.value as Quarter)}
+                      className="rounded-lg bg-white/10 px-3 py-2 text-sm font-black"
+                    >
+                      <option value="Q1">Q1</option>
+                      <option value="Q2">Q2</option>
+                      <option value="Q3">Q3</option>
+                      <option value="Q4">Q4</option>
+                      <option value="OT">OT</option>
+                    </select>
+
+                    <span className={`rounded-full px-3 py-1 text-[11px] font-black ${
+                      isClockRunning
+                        ? "bg-green-500/20 text-green-300"
+                        : "bg-yellow-500/20 text-yellow-300"
+                    }`}>
+                      {isClockRunning ? "RUNNING" : "PAUSED"}
+                    </span>
+                  </div>
+
+                  <div className="mt-2 font-mono text-6xl font-black text-orange-400">{gameClock}</div>
+
+                  <div className="mt-3 grid grid-cols-2 gap-2">
+                    <button
+                      disabled={saving || isClockRunning}
+                      onClick={() => void startClock()}
+                      className="rounded-xl bg-green-500 px-3 py-3 text-sm font-black text-black disabled:opacity-40"
+                    >
+                      START
+                    </button>
+                    <button
+                      disabled={saving || !isClockRunning}
+                      onClick={() => void pauseClock()}
+                      className="rounded-xl bg-yellow-500 px-3 py-3 text-sm font-black text-black disabled:opacity-40"
+                    >
+                      PAUSE
+                    </button>
+                  </div>
+
+                  <div className="mt-2 grid grid-cols-2 gap-2">
+                    <button
+                      disabled={saving}
+                      onClick={() => void nextPeriod()}
+                      className="rounded-xl bg-white/10 px-3 py-2 text-xs font-black disabled:opacity-40"
+                    >
+                      NEXT PERIOD
+                    </button>
+                    <button
+                      disabled={saving}
+                      onClick={() => void endGame()}
+                      className="rounded-xl bg-red-500/20 px-3 py-2 text-xs font-black text-red-300 disabled:opacity-40"
+                    >
+                      END GAME
+                    </button>
+                  </div>
+                </div>
+
+                <div className="rounded-2xl bg-[#081321] p-3">
+                  <div className="mb-3 flex items-center justify-between gap-3">
+                    <div>
+                      <p className="text-[11px] font-black uppercase tracking-[0.2em] text-gray-400">AWAY</p>
+                      <h2 className="text-xl font-black">{awayTeam?.short_name || awayTeam?.name || "AWAY"}</h2>
+                    </div>
+                    <div className="text-5xl font-black text-orange-400">{selectedGame?.away_score ?? 0}</div>
+                  </div>
+
+                  <div className="grid grid-cols-5 gap-2">
+                    {awayRosterPlayers.filter((player) => isPlayerOnCourt(player.id)).map((player) => (
+                      <button
+                        key={player.id}
+                        onClick={() => {
+                          setSelectedTeamId(selectedGame?.away_team_id ?? "");
+                          setSelectedPlayerId(player.id);
+                        }}
+                        className={`min-w-0 rounded-xl border px-2 py-3 text-center transition active:scale-95 ${
+                          selectedPlayerId === player.id
+                            ? "border-orange-400 bg-orange-500/25"
+                            : "border-green-500/30 bg-green-500/10"
+                        }`}
+                      >
+                        <div className="text-xl font-black">#{player.jersey_number ?? "-"}</div>
+                        <div className="mt-1 truncate text-[11px] font-bold">{player.first_name}</div>
+                      </button>
+                    ))}
+                  </div>
+                </div>
               </div>
 
-              <TeamButton
-                label="AWAY"
-                team={awayTeam}
-                score={selectedGame?.away_score ?? 0}
-                selected={
-                  selectedTeamId === selectedGame?.away_team_id
-                }
-                onClick={() => {
-                  setSelectedTeamId(
-                    selectedGame?.away_team_id ?? ""
-                  );
-                  setSelectedPlayerId("");
-                }}
-              />
-            </section>
+              <div className="mt-3 grid gap-3 xl:grid-cols-[260px_1fr]">
+                <div className="rounded-2xl bg-[#081321] p-3">
+                  <p className="text-[11px] font-black uppercase tracking-[0.2em] text-gray-400">Selected Player</p>
+                  {selectedPlayer ? (
+                    <>
+                      <div className="mt-2 text-2xl font-black text-orange-400">#{selectedPlayer.jersey_number ?? "-"}</div>
+                      <div className="truncate font-black">{selectedPlayer.first_name} {selectedPlayer.last_name}</div>
+                      <div className="mt-1 text-xs text-gray-400">
+                        {selectedTeamId === selectedGame?.home_team_id ? homeTeam?.name : awayTeam?.name}
+                      </div>
+                    </>
+                  ) : (
+                    <div className="mt-3 rounded-xl border border-yellow-500/30 bg-yellow-500/10 p-3 text-sm font-bold text-yellow-200">
+                      Tap an on-court player.
+                    </div>
+                  )}
+                </div>
 
-            <section className="mt-6 rounded-3xl bg-white/10 p-6 text-center">
-              <p className="text-sm font-black text-gray-400">
-                {quarter} · GAME CLOCK
-              </p>
+                <div className="rounded-2xl bg-[#081321] p-3">
+                  <div className="grid grid-cols-3 gap-2">
+                    {[
+                      ["FREE_THROW_MADE", "+1"],
+                      ["TWO_POINT_MADE", "+2"],
+                      ["THREE_POINT_MADE", "+3"],
+                    ].map(([type, label]) => (
+                      <button
+                        key={type}
+                        disabled={saving || !selectedPlayerId}
+                        onClick={() => void addEvent(type as GameEventType)}
+                        className="rounded-xl bg-orange-500 px-3 py-4 text-2xl font-black text-black active:scale-95 disabled:opacity-30"
+                      >
+                        {label}
+                      </button>
+                    ))}
+                  </div>
 
-              <p className="mt-3 font-mono text-7xl font-black text-orange-400">
-                {gameClock}
-              </p>
-
-              <div className="mt-6 grid gap-3 md:grid-cols-4">
-                <ActionButton
-                  disabled={saving || isClockRunning}
-                  onClick={() => void startClock()}
-                >
-                  START / RESUME
-                </ActionButton>
-
-                <ActionButton
-                  disabled={saving || !isClockRunning}
-                  onClick={() => void pauseClock()}
-                >
-                  PAUSE
-                </ActionButton>
-
-                <ActionButton
-                  disabled={saving}
-                  onClick={() => void nextPeriod()}
-                >
-                  NEXT PERIOD
-                </ActionButton>
-
-                <ActionButton
-                  disabled={saving}
-                  onClick={() => void endGame()}
-                >
-                  END GAME
-                </ActionButton>
+                  <div className="mt-2 grid grid-cols-5 gap-2">
+                    {[
+                      ["ASSIST", "AST"],
+                      ["DEFENSIVE_REBOUND", "DREB"],
+                      ["OFFENSIVE_REBOUND", "OREB"],
+                      ["STEAL", "STL"],
+                      ["BLOCK", "BLK"],
+                      ["TURNOVER", "TO"],
+                      ["FOUL", "FOUL"],
+                      ["TWO_POINT_MISSED", "2 MISS"],
+                      ["THREE_POINT_MISSED", "3 MISS"],
+                      ["FREE_THROW_MISSED", "FT MISS"],
+                    ].map(([type, label]) => (
+                      <button
+                        key={type}
+                        disabled={saving || !selectedPlayerId}
+                        onClick={() => void addEvent(type as GameEventType)}
+                        className="rounded-xl border border-white/10 bg-white/5 px-2 py-3 text-xs font-black active:scale-95 disabled:opacity-30"
+                      >
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
               </div>
             </section>
 
-            <section className="mt-6 rounded-3xl border border-yellow-500/30 bg-yellow-500/5 p-6">
-              <h2 className="text-3xl font-black">
-                Correction Center
-              </h2>
+            <section className="mt-4 rounded-3xl border border-blue-500/30 bg-blue-500/10 p-4">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <p className="text-xs font-black uppercase tracking-[0.2em] text-blue-400">Quick Substitution</p>
+                  <h2 className="text-xl font-black">{subOutPlayerId ? "SELECT PLAYER IN" : "SELECT PLAYER OUT"}</h2>
+                </div>
 
-              <div className="mt-6 grid gap-6 lg:grid-cols-2">
-                <div className="rounded-2xl bg-[#081321] p-5">
+                {subOutPlayerId && (
+                  <button
+                    onClick={() => {
+                      setSubOutPlayerId("");
+                      setSubstitutionTeamId("");
+                    }}
+                    className="rounded-full border border-white/15 px-4 py-2 text-xs font-black"
+                  >
+                    CANCEL
+                  </button>
+                )}
+              </div>
+
+              {!subOutPlayerId ? (
+                <div className="mt-3 grid gap-3 lg:grid-cols-2">
+                  <div>
+                    <p className="mb-2 text-xs font-black text-gray-400">{homeTeam?.short_name || homeTeam?.name}</p>
+                    <div className="grid grid-cols-5 gap-2">
+                      {homeRosterPlayers.filter((player) => isPlayerOnCourt(player.id)).map((player) => (
+                        <button
+                          key={player.id}
+                          onClick={() => {
+                            setSubOutPlayerId(player.id);
+                            setSubstitutionTeamId(selectedGame?.home_team_id ?? "");
+                          }}
+                          className="rounded-xl bg-red-500/15 px-2 py-3 text-center active:scale-95"
+                        >
+                          <div className="font-black">#{player.jersey_number ?? "-"}</div>
+                          <div className="mt-1 truncate text-[10px] font-bold">{player.first_name}</div>
+                          <div className="mt-1 text-[9px] font-black text-red-300">OUT</div>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div>
+                    <p className="mb-2 text-xs font-black text-gray-400">{awayTeam?.short_name || awayTeam?.name}</p>
+                    <div className="grid grid-cols-5 gap-2">
+                      {awayRosterPlayers.filter((player) => isPlayerOnCourt(player.id)).map((player) => (
+                        <button
+                          key={player.id}
+                          onClick={() => {
+                            setSubOutPlayerId(player.id);
+                            setSubstitutionTeamId(selectedGame?.away_team_id ?? "");
+                          }}
+                          className="rounded-xl bg-red-500/15 px-2 py-3 text-center active:scale-95"
+                        >
+                          <div className="font-black">#{player.jersey_number ?? "-"}</div>
+                          <div className="mt-1 truncate text-[10px] font-bold">{player.first_name}</div>
+                          <div className="mt-1 text-[9px] font-black text-red-300">OUT</div>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="mt-3 grid grid-cols-4 gap-2 sm:grid-cols-6 lg:grid-cols-8">
+                  {rosterPlayers
+                    .filter((player) => player.team_id === substitutionTeamId && !isPlayerOnCourt(player.id))
+                    .map((player) => (
+                      <button
+                        key={player.id}
+                        disabled={substitutionSaving}
+                        onClick={() => void makeSubstitution(player.id)}
+                        className="rounded-xl bg-green-500/15 px-2 py-3 text-center active:scale-95 disabled:opacity-40"
+                      >
+                        <div className="font-black">#{player.jersey_number ?? "-"}</div>
+                        <div className="mt-1 truncate text-[10px] font-bold">{player.first_name}</div>
+                        <div className="mt-1 text-[9px] font-black text-green-300">IN</div>
+                      </button>
+                    ))}
+                </div>
+              )}
+            </section>
+
+            <details className="mt-4 rounded-3xl border border-yellow-500/30 bg-yellow-500/5 p-4">
+              <summary className="cursor-pointer font-black text-yellow-300">CORRECTION CENTER</summary>
+
+              <div className="mt-4 grid gap-4 lg:grid-cols-2">
+                <div className="rounded-2xl bg-[#081321] p-4">
                   <input
                     value={manualClock}
-                    onChange={(event) =>
-                      setManualClock(event.target.value)
-                    }
-                    className="w-full rounded-xl bg-[#050816] p-4 font-mono text-2xl font-black"
+                    onChange={(event) => setManualClock(event.target.value)}
+                    className="w-full rounded-xl bg-[#050816] p-3 font-mono text-xl font-black"
                   />
-
                   <button
                     onClick={() => void saveManualClock()}
-                    className="mt-3 w-full rounded-xl bg-yellow-500 p-3 font-black text-black"
+                    className="mt-2 w-full rounded-xl bg-yellow-500 p-3 font-black text-black"
                   >
                     SAVE CLOCK
                   </button>
                 </div>
 
-                <div className="rounded-2xl bg-[#081321] p-5">
-                  <div className="grid grid-cols-2 gap-3">
+                <div className="rounded-2xl bg-[#081321] p-4">
+                  <div className="grid grid-cols-2 gap-2">
                     <input
                       type="number"
                       value={manualHomeScore}
-                      onChange={(event) =>
-                        setManualHomeScore(event.target.value)
-                      }
-                      className="rounded-xl bg-[#050816] p-3 text-3xl font-black"
+                      onChange={(event) => setManualHomeScore(event.target.value)}
+                      className="rounded-xl bg-[#050816] p-3 text-xl font-black"
                     />
-
                     <input
                       type="number"
                       value={manualAwayScore}
-                      onChange={(event) =>
-                        setManualAwayScore(event.target.value)
-                      }
-                      className="rounded-xl bg-[#050816] p-3 text-3xl font-black"
+                      onChange={(event) => setManualAwayScore(event.target.value)}
+                      className="rounded-xl bg-[#050816] p-3 text-xl font-black"
                     />
                   </div>
-
                   <button
                     onClick={() => void saveManualScore()}
-                    className="mt-3 w-full rounded-xl bg-yellow-500 p-3 font-black text-black"
+                    className="mt-2 w-full rounded-xl bg-yellow-500 p-3 font-black text-black"
                   >
                     SAVE SCORE
                   </button>
                 </div>
               </div>
-            </section>
-
-            <section className="mt-6 rounded-3xl bg-white/10 p-6">
-              <h2 className="text-2xl font-black">
-                Select Player
-              </h2>
-
-              <div className="mt-5 grid grid-cols-2 gap-3 md:grid-cols-6">
-                {selectedTeamPlayers.map((player) => (
-                  <button
-                    key={player.id}
-                    onClick={() =>
-                      setSelectedPlayerId(player.id)
-                    }
-                    className={`rounded-2xl border p-4 text-left ${
-                      selectedPlayerId === player.id
-                        ? "border-orange-400 bg-orange-500/25"
-                        : "border-white/10 bg-[#081321]"
-                    }`}
-                  >
-                    #{player.jersey_number}
-                    <br />
-                    {player.first_name} {player.last_name}
-                  </button>
-                ))}
-              </div>
-            </section>
-
-            <section className="mt-6 rounded-3xl bg-white/10 p-6">
-              <div className="grid grid-cols-3 gap-4">
-                {[
-                  ["FREE_THROW_MADE", "+1"],
-                  ["TWO_POINT_MADE", "+2"],
-                  ["THREE_POINT_MADE", "+3"],
-                ].map(([type, label]) => (
-                  <button
-                    key={type}
-                    disabled={saving}
-                    onClick={() =>
-                      void addEvent(type as GameEventType)
-                    }
-                    className="rounded-2xl bg-orange-500 p-6 text-3xl font-black active:scale-90"
-                  >
-                    {label}
-                  </button>
-                ))}
-              </div>
-            </section>
-
-            <section className="mt-6 rounded-3xl bg-white/10 p-6">
-              <div className="grid grid-cols-2 gap-3 md:grid-cols-5">
-                {[
-                  ["DEFENSIVE_REBOUND", "DEF REB"],
-                  ["OFFENSIVE_REBOUND", "OFF REB"],
-                  ["ASSIST", "AST"],
-                  ["STEAL", "STL"],
-                  ["BLOCK", "BLK"],
-                  ["TURNOVER", "TO"],
-                  ["FOUL", "FOUL"],
-                  ["TWO_POINT_MISSED", "2PT MISS"],
-                  ["THREE_POINT_MISSED", "3PT MISS"],
-                  ["FREE_THROW_MISSED", "FT MISS"],
-                ].map(([type, label]) => (
-                  <ActionButton
-                    key={type}
-                    disabled={saving}
-                    onClick={() =>
-                      void addEvent(type as GameEventType)
-                    }
-                  >
-                    {label}
-                  </ActionButton>
-                ))}
-              </div>
-            </section>
+            </details>
 
             <section className="mt-6 rounded-3xl border border-orange-500/30 bg-orange-500/10 p-6">
               <h2 className="text-3xl font-black">
@@ -2027,6 +2408,61 @@ function ActionButton({
     >
       {children}
     </button>
+  );
+}
+
+function SubstitutionTeamPanel({
+  title,
+  players,
+  selectedPlayerId,
+  buttonLabel,
+  onSelect,
+}: {
+  title: string;
+  players: PlayerRow[];
+  selectedPlayerId: string;
+  buttonLabel: string;
+  onSelect: (playerId: string) => void;
+}) {
+  return (
+    <div className="rounded-3xl bg-[#081321] p-5">
+      <h3 className="text-xl font-black">{title}</h3>
+
+      <div className="mt-4 space-y-3">
+        {players.map((player) => (
+          <button
+            key={player.id}
+            onClick={() => onSelect(player.id)}
+            className={`flex w-full items-center justify-between rounded-2xl border p-4 text-left transition active:scale-[0.98] ${
+              selectedPlayerId === player.id
+                ? "border-red-400 bg-red-500/20"
+                : "border-white/10 bg-white/5"
+            }`}
+          >
+            <div>
+              <p className="font-black">
+                #{player.jersey_number ?? "-"}{" "}
+                {player.first_name} {player.last_name}
+              </p>
+
+              <p className="mt-1 text-xs font-black text-green-400">
+                ON COURT
+              </p>
+            </div>
+
+            <span className="rounded-xl bg-red-500/20 px-3 py-2 text-xs font-black text-red-300">
+              {buttonLabel}
+            </span>
+          </button>
+        ))}
+
+        {players.length === 0 && (
+          <p className="rounded-xl bg-white/5 p-4 text-sm text-gray-400">
+            No on-court players found.
+          </p>
+        )}
+      </div>
+    </div>
   );
 }
 
