@@ -20,8 +20,11 @@ export const tournament = {
   youtube: "",
 
   documents: {
-    regulations:
-      "/documents/CYBL_Summer_League_2026_Official_Regulations.pdf",
+    regulationsGe:
+      "/documents/CYBL_2026_Regulations_GE.pdf",
+
+    regulationsEn:
+      "/documents/CYBL_2026_Regulations_EN.pdf",
 
     presentation:
       "/documents/CYBL_Summer_League_2026_Official_Presentation.pdf",

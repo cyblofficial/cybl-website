@@ -106,12 +106,21 @@ export default function Contact() {
             </a>
 
             <a
-              href="/documents/CYBL_Summer_League_2026_Official_Regulations.pdf"
+              href="/documents/CYBL_2026_Regulations_GE.pdf"
               target="_blank"
               rel="noopener noreferrer"
               className="rounded-full border border-white/30 px-8 py-4 font-bold hover:bg-white/10"
             >
-              Download Regulations
+              🇬🇪 ქართული დებულება
+            </a>
+
+            <a
+              href="/documents/CYBL_2026_Regulations_EN.pdf"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="rounded-full border border-white/30 px-8 py-4 font-bold hover:bg-white/10"
+            >
+              🇬🇧 English Regulations
             </a>
           </div>
         </div>

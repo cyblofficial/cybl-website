@@ -13,6 +13,7 @@ function Counter({ target, suffix = "+" }: { target: number; suffix?: string }) 
 
     const timer = setInterval(() => {
       current += increment;
+
       if (current >= target) {
         setCount(target);
         clearInterval(timer);
@@ -40,12 +41,20 @@ function Countdown() {
       const eventDate = new Date("2026-09-01T00:00:00");
       const now = new Date();
       const diff = eventDate.getTime() - now.getTime();
-      const days = Math.max(0, Math.ceil(diff / (1000 * 60 * 60 * 24)));
+      const days = Math.max(
+        0,
+        Math.ceil(diff / (1000 * 60 * 60 * 24))
+      );
+
       setDaysLeft(days);
     };
 
     updateCountdown();
-    const timer = setInterval(updateCountdown, 1000 * 60 * 60);
+
+    const timer = setInterval(
+      updateCountdown,
+      1000 * 60 * 60
+    );
 
     return () => clearInterval(timer);
   }, []);
@@ -56,6 +65,7 @@ function Countdown() {
         <p className="text-xs font-bold uppercase tracking-[0.28em] text-orange-400">
           Next Tournament
         </p>
+
         <h3 className="mt-1 text-xl font-black text-white md:text-2xl">
           1–5 September 2026
         </h3>
@@ -67,6 +77,7 @@ function Countdown() {
         <p className="text-xs font-bold uppercase tracking-[0.28em] text-gray-400">
           Countdown
         </p>
+
         <h3 className="mt-1 text-2xl font-black text-orange-400 md:text-3xl">
           {daysLeft === null ? "..." : `${daysLeft} DAYS`}
         </h3>
@@ -77,14 +88,38 @@ function Countdown() {
 
 export default function Hero() {
   const countries = [
-    { name: "Georgia", flag: "https://flagcdn.com/w40/ge.png" },
-    { name: "Armenia", flag: "https://flagcdn.com/w40/am.png" },
-    { name: "Azerbaijan", flag: "https://flagcdn.com/w40/az.png" },
-    { name: "Türkiye", flag: "https://flagcdn.com/w40/tr.png" },
-    { name: "Kazakhstan", flag: "https://flagcdn.com/w40/kz.png" },
-    { name: "Latvia", flag: "https://flagcdn.com/w40/lv.png" },
-    { name: "Belarus", flag: "https://flagcdn.com/w40/by.png" },
-    { name: "Ukraine", flag: "https://flagcdn.com/w40/ua.png" },
+    {
+      name: "Georgia",
+      flag: "https://flagcdn.com/w40/ge.png",
+    },
+    {
+      name: "Armenia",
+      flag: "https://flagcdn.com/w40/am.png",
+    },
+    {
+      name: "Azerbaijan",
+      flag: "https://flagcdn.com/w40/az.png",
+    },
+    {
+      name: "Türkiye",
+      flag: "https://flagcdn.com/w40/tr.png",
+    },
+    {
+      name: "Kazakhstan",
+      flag: "https://flagcdn.com/w40/kz.png",
+    },
+    {
+      name: "Latvia",
+      flag: "https://flagcdn.com/w40/lv.png",
+    },
+    {
+      name: "Belarus",
+      flag: "https://flagcdn.com/w40/by.png",
+    },
+    {
+      name: "Ukraine",
+      flag: "https://flagcdn.com/w40/ua.png",
+    },
   ];
 
   const stats = [
@@ -99,11 +134,15 @@ export default function Hero() {
   return (
     <section className="relative min-h-screen overflow-hidden bg-[#050816] text-white">
       <div className="absolute inset-0 bg-[url('/hero-basketball.png')] bg-cover bg-center opacity-95" />
+
       <div className="absolute inset-0 bg-gradient-to-r from-[#050816] via-[#050816]/68 to-[#050816]/15" />
+
       <div className="absolute inset-0 bg-gradient-to-t from-[#050816] via-[#050816]/15 to-[#050816]/45" />
 
       <div className="absolute left-[-220px] top-44 h-[520px] w-[520px] animate-pulse rounded-full bg-orange-500/20 blur-[180px]" />
-      <div className="absolute right-[-140px] bottom-0 h-[620px] w-[620px] animate-pulse rounded-full bg-orange-400/25 blur-[220px]" />
+
+      <div className="absolute bottom-0 right-[-140px] h-[620px] w-[620px] animate-pulse rounded-full bg-orange-400/25 blur-[220px]" />
+
       <div className="absolute left-1/2 top-1/3 h-[320px] w-[320px] -translate-x-1/2 rounded-full bg-yellow-400/10 blur-[140px]" />
 
       <div className="pointer-events-none absolute inset-0 z-[2] hidden md:block">
@@ -115,7 +154,9 @@ export default function Hero() {
               left: `${8 + index * 5}%`,
               top: `${18 + ((index * 13) % 70)}%`,
               opacity: 0.25 + (index % 5) * 0.12,
-              transform: `scale(${0.7 + (index % 4) * 0.25})`,
+              transform: `scale(${
+                0.7 + (index % 4) * 0.25
+              })`,
             }}
           />
         ))}
@@ -143,6 +184,7 @@ export default function Hero() {
         <div className="max-w-4xl">
           <div className="mb-6 inline-flex items-center gap-3 rounded-full border border-orange-400/30 bg-orange-500/10 px-5 py-2 backdrop-blur-xl">
             <span className="h-2 w-2 animate-pulse rounded-full bg-orange-400 shadow-[0_0_18px_rgba(251,146,60,0.9)]" />
+
             <span className="text-xs font-black uppercase tracking-[0.28em] text-orange-300 md:text-sm">
               Caucasus Youth Basketball League
             </span>
@@ -157,9 +199,10 @@ export default function Hero() {
           </h1>
 
           <p className="mb-8 max-w-2xl text-lg leading-relaxed text-gray-200 md:text-xl">
-            CYBL connects young athletes, clubs and countries through premium
-            international youth basketball tournaments, education and long-term
-            player development.
+            CYBL connects young athletes, clubs and countries
+            through premium international youth basketball
+            tournaments, education and long-term player
+            development.
           </p>
 
           <Countdown />
@@ -173,12 +216,21 @@ export default function Hero() {
             </a>
 
             <a
-              href="/documents/CYBL_Summer_League_2026_Official_Regulations.pdf"
+              href="/documents/CYBL_2026_Regulations_GE.pdf"
               target="_blank"
               rel="noopener noreferrer"
-              className="rounded-full border border-white/25 bg-white/10 px-8 py-4 font-bold text-white backdrop-blur-md transition duration-300 hover:-translate-y-1 hover:border-orange-300 hover:bg-white hover:text-[#050816]"
+              className="rounded-full border border-white/25 bg-white/10 px-7 py-4 font-bold text-white backdrop-blur-md transition duration-300 hover:-translate-y-1 hover:border-orange-300 hover:bg-white hover:text-[#050816]"
             >
-              Official Regulations
+              🇬🇪 ქართული დებულება
+            </a>
+
+            <a
+              href="/documents/CYBL_2026_Regulations_EN.pdf"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="rounded-full border border-white/25 bg-white/10 px-7 py-4 font-bold text-white backdrop-blur-md transition duration-300 hover:-translate-y-1 hover:border-orange-300 hover:bg-white hover:text-[#050816]"
+            >
+              🇬🇧 English Regulations
             </a>
           </div>
 
@@ -215,6 +267,7 @@ export default function Hero() {
                     alt={country.name}
                     className="h-4 w-6 rounded-sm object-cover"
                   />
+
                   {country.name}
                 </span>
               ))}
@@ -225,6 +278,7 @@ export default function Hero() {
                   alt="Russia"
                   className="h-3 w-5 rounded-sm object-cover opacity-60"
                 />
+
                 Russia
               </span>
             </div>

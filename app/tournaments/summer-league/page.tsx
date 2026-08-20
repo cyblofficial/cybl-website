@@ -74,7 +74,10 @@ export default function SummerLeaguePage() {
               key={title}
               className="rounded-3xl border border-white/10 bg-[#081B33] p-8"
             >
-              <h3 className="text-3xl font-black text-yellow-500">{title}</h3>
+              <h3 className="text-3xl font-black text-yellow-500">
+                {title}
+              </h3>
+
               <p className="mt-4 leading-8 text-gray-300">{text}</p>
             </div>
           ))}
@@ -84,6 +87,7 @@ export default function SummerLeaguePage() {
       <section id="documents" className="px-8 py-20">
         <div className="mx-auto max-w-7xl">
           <h2 className="text-4xl font-black">Tournament Documents</h2>
+
           <p className="mt-4 text-gray-300">
             Download the official documents for the CYBL Summer League 2026.
           </p>
@@ -91,22 +95,36 @@ export default function SummerLeaguePage() {
           <div className="mt-10 grid gap-6 md:grid-cols-2">
             <div className="rounded-3xl border border-white/10 bg-white/5 p-8">
               <h3 className="text-2xl font-bold">Official Regulations</h3>
+
               <p className="mt-4 text-gray-300">
                 Official tournament regulations and participation rules.
+                Available in Georgian and English.
               </p>
 
-              <a
-                href="/documents/CYBL_Summer_League_2026_Official_Regulations.pdf"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="mt-8 inline-block rounded-full bg-yellow-500 px-8 py-4 font-bold text-black hover:bg-yellow-400"
-              >
-                Download Regulations
-              </a>
+              <div className="mt-8 flex flex-wrap gap-4">
+                <a
+                  href="/documents/CYBL_2026_Regulations_GE.pdf"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-block rounded-full bg-yellow-500 px-8 py-4 font-bold text-black hover:bg-yellow-400"
+                >
+                  🇬🇪 ქართული დებულება
+                </a>
+
+                <a
+                  href="/documents/CYBL_2026_Regulations_EN.pdf"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-block rounded-full border border-white/30 px-8 py-4 font-bold hover:bg-white/10"
+                >
+                  🇬🇧 English Regulations
+                </a>
+              </div>
             </div>
 
             <div className="rounded-3xl border border-white/10 bg-white/5 p-8">
               <h3 className="text-2xl font-bold">Official Presentation</h3>
+
               <p className="mt-4 text-gray-300">
                 Summer League presentation for clubs and partners.
               </p>
@@ -127,6 +145,7 @@ export default function SummerLeaguePage() {
       <section className="px-8 pb-24">
         <div className="mx-auto max-w-7xl rounded-3xl border border-yellow-500/20 bg-yellow-500/10 p-10">
           <h2 className="text-4xl font-black">Ready to Join?</h2>
+
           <p className="mt-6 max-w-3xl text-lg leading-8 text-gray-300">
             Contact CYBL to receive tournament information and complete your
             free team registration.
