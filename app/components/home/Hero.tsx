@@ -1,8 +1,31 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { supabase } from "@/app/lib/supabase";
 
-function Counter({ target, suffix = "+" }: { target: number; suffix?: string }) {
+type Tournament = {
+  id: string;
+  name: string;
+  slug: string | null;
+  city: string | null;
+  country: string | null;
+  start_date: string | null;
+  end_date: string | null;
+  age_group: string | null;
+  registration_status: string | null;
+  regulations_ge_url: string | null;
+  regulations_en_url: string | null;
+  is_featured: boolean;
+  is_published: boolean;
+};
+
+function Counter({
+  target,
+  suffix = "+",
+}: {
+  target: number;
+  suffix?: string;
+}) {
   const [count, setCount] = useState(0);
 
   useEffect(() => {
@@ -33,14 +56,75 @@ function Counter({ target, suffix = "+" }: { target: number; suffix?: string }) 
   );
 }
 
-function Countdown() {
+function formatDateRange(
+  startDate: string | null,
+  endDate: string | null
+) {
+  if (!startDate) {
+    return "Dates coming soon";
+  }
+
+  const start = new Date(`${startDate}T00:00:00`);
+
+  if (!endDate) {
+    return new Intl.DateTimeFormat("en", {
+      day: "numeric",
+      month: "long",
+      year: "numeric",
+    }).format(start);
+  }
+
+  const end = new Date(`${endDate}T00:00:00`);
+
+  if (
+    start.getFullYear() === end.getFullYear() &&
+    start.getMonth() === end.getMonth()
+  ) {
+    const month = new Intl.DateTimeFormat("en", {
+      month: "long",
+    }).format(start);
+
+    return `${start.getDate()}–${end.getDate()} ${month} ${start.getFullYear()}`;
+  }
+
+  const startFormatted = new Intl.DateTimeFormat("en", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  }).format(start);
+
+  const endFormatted = new Intl.DateTimeFormat("en", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  }).format(end);
+
+  return `${startFormatted} – ${endFormatted}`;
+}
+
+function Countdown({
+  tournament,
+}: {
+  tournament: Tournament | null;
+}) {
   const [daysLeft, setDaysLeft] = useState<number | null>(null);
 
   useEffect(() => {
+    if (!tournament?.start_date) {
+      setDaysLeft(null);
+      return;
+    }
+
     const updateCountdown = () => {
-      const eventDate = new Date("2026-09-01T00:00:00");
+      const eventDate = new Date(
+        `${tournament.start_date}T00:00:00`
+      );
+
       const now = new Date();
-      const diff = eventDate.getTime() - now.getTime();
+
+      const diff =
+        eventDate.getTime() - now.getTime();
+
       const days = Math.max(
         0,
         Math.ceil(diff / (1000 * 60 * 60 * 24))
@@ -57,7 +141,11 @@ function Countdown() {
     );
 
     return () => clearInterval(timer);
-  }, []);
+  }, [tournament?.start_date]);
+
+  if (!tournament) {
+    return null;
+  }
 
   return (
     <div className="mb-10 inline-flex flex-wrap items-center gap-4 rounded-3xl border border-orange-500/25 bg-white/10 px-6 py-4 backdrop-blur-xl">
@@ -67,7 +155,10 @@ function Countdown() {
         </p>
 
         <h3 className="mt-1 text-xl font-black text-white md:text-2xl">
-          1–5 September 2026
+          {formatDateRange(
+            tournament.start_date,
+            tournament.end_date
+          )}
         </h3>
       </div>
 
@@ -79,7 +170,9 @@ function Countdown() {
         </p>
 
         <h3 className="mt-1 text-2xl font-black text-orange-400 md:text-3xl">
-          {daysLeft === null ? "..." : `${daysLeft} DAYS`}
+          {daysLeft === null
+            ? "TBA"
+            : `${daysLeft} DAYS`}
         </h3>
       </div>
     </div>
@@ -87,6 +180,73 @@ function Countdown() {
 }
 
 export default function Hero() {
+  const [tournament, setTournament] =
+    useState<Tournament | null>(null);
+
+  useEffect(() => {
+    void loadFeaturedTournament();
+
+    const channel = supabase
+      .channel("hero-featured-tournament")
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "tournaments",
+        },
+        () => {
+          void loadFeaturedTournament();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      void supabase.removeChannel(channel);
+    };
+  }, []);
+
+  async function loadFeaturedTournament() {
+    const { data, error } = await supabase
+      .from("tournaments")
+      .select(
+        `
+          id,
+          name,
+          slug,
+          city,
+          country,
+          start_date,
+          end_date,
+          age_group,
+          registration_status,
+          regulations_ge_url,
+          regulations_en_url,
+          is_featured,
+          is_published
+        `
+      )
+      .eq("is_published", true)
+      .eq("is_featured", true)
+      .order("start_date", {
+        ascending: true,
+      })
+      .limit(1)
+      .maybeSingle();
+
+    if (error) {
+      console.error(
+        "Hero tournament error:",
+        error.message
+      );
+      return;
+    }
+
+    setTournament(
+      data ? (data as Tournament) : null
+    );
+  }
+
   const countries = [
     {
       name: "Georgia",
@@ -131,6 +291,31 @@ export default function Hero() {
 
   const particles = Array.from({ length: 18 });
 
+  const registrationOpen =
+    tournament?.registration_status?.toUpperCase() ===
+    "OPEN";
+
+  const emailSubject = encodeURIComponent(
+    `${tournament?.name || "CYBL Tournament"} Registration`
+  );
+
+  const emailBody = encodeURIComponent(
+    `Hello CYBL,
+
+We are interested in ${
+      tournament?.name || "your tournament"
+    }.
+
+Team Name:
+Country:
+Age Group:
+Number of Players:
+Number of Coaches:
+Contact Person:
+Phone:
+`
+  );
+
   return (
     <section className="relative min-h-screen overflow-hidden bg-[#050816] text-white">
       <div className="absolute inset-0 bg-[url('/hero-basketball.png')] bg-cover bg-center opacity-95" />
@@ -141,7 +326,7 @@ export default function Hero() {
 
       <div className="absolute left-[-220px] top-44 h-[520px] w-[520px] animate-pulse rounded-full bg-orange-500/20 blur-[180px]" />
 
-      <div className="absolute bottom-0 right-[-140px] h-[620px] w-[620px] animate-pulse rounded-full bg-orange-400/25 blur-[220px]" />
+      <div className="absolute right-[-140px] bottom-0 h-[620px] w-[620px] animate-pulse rounded-full bg-orange-400/25 blur-[220px]" />
 
       <div className="absolute left-1/2 top-1/3 h-[320px] w-[320px] -translate-x-1/2 rounded-full bg-yellow-400/10 blur-[140px]" />
 
@@ -153,7 +338,8 @@ export default function Hero() {
             style={{
               left: `${8 + index * 5}%`,
               top: `${18 + ((index * 13) % 70)}%`,
-              opacity: 0.25 + (index % 5) * 0.12,
+              opacity:
+                0.25 + (index % 5) * 0.12,
               transform: `scale(${
                 0.7 + (index % 4) * 0.25
               })`,
@@ -182,6 +368,7 @@ export default function Hero() {
 
       <div className="relative z-10 mx-auto flex min-h-screen max-w-7xl items-center px-6 py-24">
         <div className="max-w-4xl">
+
           <div className="mb-6 inline-flex items-center gap-3 rounded-full border border-orange-400/30 bg-orange-500/10 px-5 py-2 backdrop-blur-xl">
             <span className="h-2 w-2 animate-pulse rounded-full bg-orange-400 shadow-[0_0_18px_rgba(251,146,60,0.9)]" />
 
@@ -199,39 +386,52 @@ export default function Hero() {
           </h1>
 
           <p className="mb-8 max-w-2xl text-lg leading-relaxed text-gray-200 md:text-xl">
-            CYBL connects young athletes, clubs and countries
-            through premium international youth basketball
-            tournaments, education and long-term player
-            development.
+            CYBL connects young athletes, clubs and
+            countries through premium international
+            youth basketball tournaments, education and
+            long-term player development.
           </p>
 
-          <Countdown />
+          <Countdown tournament={tournament} />
 
           <div className="mb-10 flex flex-wrap gap-4">
-            <a
-              href="/tournaments/summer-league"
-              className="rounded-full bg-orange-500 px-8 py-4 font-bold text-white shadow-xl shadow-orange-500/30 transition duration-300 hover:-translate-y-1 hover:scale-105 hover:bg-orange-600 hover:shadow-[0_0_45px_rgba(249,115,22,0.7)]"
-            >
-              Register Your Team
-            </a>
 
-            <a
-              href="/documents/CYBL_2026_Regulations_GE.pdf"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="rounded-full border border-white/25 bg-white/10 px-7 py-4 font-bold text-white backdrop-blur-md transition duration-300 hover:-translate-y-1 hover:border-orange-300 hover:bg-white hover:text-[#050816]"
-            >
-              🇬🇪 ქართული დებულება
-            </a>
+            {tournament && registrationOpen && (
+              <a
+                href={`https://mail.google.com/mail/?view=cm&fs=1&to=telavicybl@gmail.com&su=${emailSubject}&body=${emailBody}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="rounded-full bg-orange-500 px-8 py-4 font-bold text-white shadow-xl shadow-orange-500/30 transition duration-300 hover:-translate-y-1 hover:scale-105 hover:bg-orange-600 hover:shadow-[0_0_45px_rgba(249,115,22,0.7)]"
+              >
+                Register Your Team
+              </a>
+            )}
 
-            <a
-              href="/documents/CYBL_2026_Regulations_EN.pdf"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="rounded-full border border-white/25 bg-white/10 px-7 py-4 font-bold text-white backdrop-blur-md transition duration-300 hover:-translate-y-1 hover:border-orange-300 hover:bg-white hover:text-[#050816]"
-            >
-              🇬🇧 English Regulations
-            </a>
+            {tournament?.regulations_ge_url && (
+              <a
+                href={
+                  tournament.regulations_ge_url
+                }
+                target="_blank"
+                rel="noopener noreferrer"
+                className="rounded-full border border-white/25 bg-white/10 px-8 py-4 font-bold text-white backdrop-blur-md transition duration-300 hover:-translate-y-1 hover:border-orange-300 hover:bg-white hover:text-[#050816]"
+              >
+                🇬🇪 ქართული დებულება
+              </a>
+            )}
+
+            {tournament?.regulations_en_url && (
+              <a
+                href={
+                  tournament.regulations_en_url
+                }
+                target="_blank"
+                rel="noopener noreferrer"
+                className="rounded-full border border-white/25 bg-white/10 px-8 py-4 font-bold text-white backdrop-blur-md transition duration-300 hover:-translate-y-1 hover:border-orange-300 hover:bg-white hover:text-[#050816]"
+              >
+                🇬🇧 English Regulations
+              </a>
+            )}
           </div>
 
           <div className="grid max-w-4xl grid-cols-2 gap-4 md:grid-cols-4">
@@ -241,7 +441,9 @@ export default function Hero() {
                 className="group rounded-3xl border border-white/10 bg-white/10 p-5 backdrop-blur-xl transition duration-300 hover:-translate-y-2 hover:border-orange-400/70 hover:bg-white/15 hover:shadow-[0_0_40px_rgba(249,115,22,0.35)]"
               >
                 <h3 className="text-3xl font-black text-orange-400 md:text-4xl">
-                  <Counter target={item.number} />
+                  <Counter
+                    target={item.number}
+                  />
                 </h3>
 
                 <p className="mt-2 text-xs uppercase tracking-widest text-gray-200 md:text-sm">
@@ -278,11 +480,11 @@ export default function Hero() {
                   alt="Russia"
                   className="h-3 w-5 rounded-sm object-cover opacity-60"
                 />
-
                 Russia
               </span>
             </div>
           </div>
+
         </div>
       </div>
 
