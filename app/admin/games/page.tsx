@@ -17,6 +17,14 @@ type TeamRow = {
   short_name: string | null;
 };
 
+type TournamentRow = {
+  id: string;
+  name: string;
+  start_date: string | null;
+  end_date: string | null;
+  is_published: boolean | null;
+};
+
 type GameRow = {
   id: string;
   tournament_id: string | null;
@@ -66,6 +74,7 @@ type GameRosterRow = {
 };
 
 type GameForm = {
+  tournament_id: string;
   game_code: string;
   stage: string;
   group_name: string;
@@ -88,6 +97,7 @@ type GameForm = {
 };
 
 const emptyForm: GameForm = {
+  tournament_id: "",
   game_code: "",
   stage: "GROUP",
   group_name: "",
@@ -113,6 +123,7 @@ export default function AdminGamesPage() {
   const router = useRouter();
 
   const [profile, setProfile] = useState<Profile | null>(null);
+  const [tournaments, setTournaments] = useState<TournamentRow[]>([]);
   const [teams, setTeams] = useState<TeamRow[]>([]);
   const [games, setGames] = useState<GameRow[]>([]);
   const [players, setPlayers] = useState<PlayerRow[]>([]);
@@ -239,35 +250,50 @@ export default function AdminGamesPage() {
 
     setProfile(profileData as Profile);
 
-    const [teamsResponse, gamesResponse, playersResponse] =
-      await Promise.all([
-        supabase
-          .from("teams")
-          .select("id, name, short_name")
-          .order("name"),
+    const [
+      tournamentsResponse,
+      teamsResponse,
+      gamesResponse,
+      playersResponse,
+    ] = await Promise.all([
+      supabase
+        .from("tournaments")
+        .select("id, name, start_date, end_date, is_published")
+        .order("start_date", { ascending: true }),
 
-        supabase
-          .from("games")
-          .select("*")
-          .order("game_date", { ascending: true })
-          .order("game_time", { ascending: true }),
+      supabase
+        .from("teams")
+        .select("id, name, short_name")
+        .order("name"),
 
-        supabase
-          .from("players")
-          .select(
-            `
-            id,
-            cybl_id,
-            team_id,
-            first_name,
-            last_name,
-            jersey_number,
-            position,
-            height_cm,
-            is_active
-            `
-          ),
-      ]);
+      supabase
+        .from("games")
+        .select("*")
+        .order("game_date", { ascending: true })
+        .order("game_time", { ascending: true }),
+
+      supabase
+        .from("players")
+        .select(
+          `
+          id,
+          cybl_id,
+          team_id,
+          first_name,
+          last_name,
+          jersey_number,
+          position,
+          height_cm,
+          is_active
+          `
+        ),
+    ]);
+
+    if (tournamentsResponse.error) {
+      setErrorMessage(tournamentsResponse.error.message);
+      setLoading(false);
+      return;
+    }
 
     if (teamsResponse.error) {
       setErrorMessage(teamsResponse.error.message);
@@ -287,10 +313,13 @@ export default function AdminGamesPage() {
       return;
     }
 
+    const loadedTournaments =
+      (tournamentsResponse.data ?? []) as TournamentRow[];
     const loadedTeams = (teamsResponse.data ?? []) as TeamRow[];
     const loadedGames = (gamesResponse.data ?? []) as GameRow[];
     const loadedPlayers = (playersResponse.data ?? []) as PlayerRow[];
 
+    setTournaments(loadedTournaments);
     setTeams(loadedTeams);
     setGames(loadedGames);
     setPlayers(loadedPlayers);
@@ -308,6 +337,7 @@ export default function AdminGamesPage() {
 
   function fillForm(game: GameRow) {
     setForm({
+      tournament_id: game.tournament_id ?? "",
       game_code: game.game_code ?? "",
       stage: game.stage ?? "GROUP",
       group_name: game.group_name ?? "",
@@ -368,8 +398,6 @@ export default function AdminGamesPage() {
   }
 
   async function saveGameDetails() {
-    if (!selectedGameId) return;
-
     if (!form.home_team_id || !form.away_team_id) {
       setErrorMessage("Select both Home and Away teams.");
       return;
@@ -380,11 +408,17 @@ export default function AdminGamesPage() {
       return;
     }
 
+    if (!form.game_code.trim()) {
+      setErrorMessage("Game Code is required.");
+      return;
+    }
+
     setSavingGame(true);
     setMessage("");
     setErrorMessage("");
 
     const updateData = {
+      tournament_id: form.tournament_id || null,
       game_code: form.game_code.trim(),
       stage: form.stage || null,
       group_name: form.group_name.trim() || null,
@@ -407,6 +441,37 @@ export default function AdminGamesPage() {
       updated_at: new Date().toISOString(),
     };
 
+    if (!selectedGameId) {
+      const { data, error } = await supabase
+        .from("games")
+        .insert(updateData)
+        .select()
+        .single();
+
+      if (error) {
+        setErrorMessage(error.message);
+        setSavingGame(false);
+        return;
+      }
+
+      const createdGame = data as GameRow;
+
+      setGames((current) =>
+        [...current, createdGame].sort((a, b) =>
+          `${a.game_date ?? ""} ${a.game_time ?? ""}`.localeCompare(
+            `${b.game_date ?? ""} ${b.game_time ?? ""}`
+          )
+        )
+      );
+
+      setSelectedGameId(createdGame.id);
+      fillForm(createdGame);
+      setRosters([]);
+      setMessage("✓ New game created successfully.");
+      setSavingGame(false);
+      return;
+    }
+
     const { data, error } = await supabase
       .from("games")
       .update(updateData)
@@ -428,6 +493,137 @@ export default function AdminGamesPage() {
 
     setMessage("✓ Game details saved successfully.");
     setSavingGame(false);
+  }
+
+  function newGame() {
+    setSelectedGameId("");
+    setForm({
+      ...emptyForm,
+      tournament_id:
+        tournaments.find((tournament) => tournament.is_published)?.id ?? "",
+    });
+    setRosters([]);
+    setMessage("");
+    setErrorMessage("");
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
+  async function startSelectedGame(gameId: string) {
+    const game = games.find((item) => item.id === gameId);
+    if (!game) return;
+
+    const confirmed = window.confirm(
+      `Start ${game.game_code} now?`
+    );
+
+    if (!confirmed) return;
+
+    setSavingGame(true);
+    setMessage("");
+    setErrorMessage("");
+
+    const { data, error } = await supabase
+      .from("games")
+      .update({
+        status: "LIVE",
+        current_period: game.current_period || "Q1",
+        game_clock: game.game_clock || "10:00",
+        started_at: game.started_at ?? new Date().toISOString(),
+        finished_at: null,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", gameId)
+      .select()
+      .single();
+
+    if (error) {
+      setErrorMessage(error.message);
+      setSavingGame(false);
+      return;
+    }
+
+    setGames((current) =>
+      current.map((item) =>
+        item.id === gameId ? (data as GameRow) : item
+      )
+    );
+
+    setSavingGame(false);
+    router.push(`/scorer?game=${gameId}`);
+  }
+
+  async function cancelGame(gameId: string) {
+    const game = games.find((item) => item.id === gameId);
+    if (!game) return;
+
+    const confirmed = window.confirm(
+      `Cancel ${game.game_code}?`
+    );
+
+    if (!confirmed) return;
+
+    const { data, error } = await supabase
+      .from("games")
+      .update({
+        status: "CANCELLED",
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", gameId)
+      .select()
+      .single();
+
+    if (error) {
+      setErrorMessage(error.message);
+      return;
+    }
+
+    setGames((current) =>
+      current.map((item) =>
+        item.id === gameId ? (data as GameRow) : item
+      )
+    );
+
+    if (selectedGameId === gameId) {
+      fillForm(data as GameRow);
+    }
+
+    setMessage("✓ Game cancelled.");
+  }
+
+  async function deleteGame(gameId: string) {
+    const game = games.find((item) => item.id === gameId);
+    if (!game) return;
+
+    const confirmed = window.confirm(
+      `Permanently delete ${game.game_code}? This cannot be undone.`
+    );
+
+    if (!confirmed) return;
+
+    const { error } = await supabase
+      .from("games")
+      .delete()
+      .eq("id", gameId);
+
+    if (error) {
+      setErrorMessage(error.message);
+      return;
+    }
+
+    const remaining = games.filter((item) => item.id !== gameId);
+    setGames(remaining);
+
+    if (selectedGameId === gameId) {
+      if (remaining.length > 0) {
+        setSelectedGameId(remaining[0].id);
+        fillForm(remaining[0]);
+        await loadRosters(remaining[0].id);
+      } else {
+        newGame();
+      }
+    }
+
+    setMessage("✓ Game deleted.");
   }
 
   function getRosterRow(playerId: string, teamId: string) {
@@ -700,8 +896,20 @@ export default function AdminGamesPage() {
               ← Dashboard
             </a>
 
+            <button
+              type="button"
+              onClick={newGame}
+              className="rounded-full bg-green-500 px-5 py-3 font-black text-black"
+            >
+              + ADD NEW GAME
+            </button>
+
             <a
-              href="/scorer"
+              href={
+                selectedGameId
+                  ? `/scorer?game=${selectedGameId}`
+                  : "/scorer"
+              }
               className="rounded-full bg-orange-500 px-5 py-3 font-black"
             >
               Open Scorer
@@ -721,6 +929,145 @@ export default function AdminGamesPage() {
           </div>
         )}
 
+        <section className="mt-10">
+          <div className="flex flex-wrap items-end justify-between gap-4">
+            <div>
+              <p className="text-xs font-black uppercase tracking-[0.25em] text-orange-400">
+                Game Control
+              </p>
+              <h2 className="mt-2 text-3xl font-black">
+                Upcoming & Live Games
+              </h2>
+            </div>
+
+            <button
+              type="button"
+              onClick={newGame}
+              className="rounded-full bg-green-500 px-5 py-3 font-black text-black"
+            >
+              + ADD GAME
+            </button>
+          </div>
+
+          <div className="mt-5 grid gap-4">
+            {games
+              .filter((game) =>
+                ["UPCOMING", "LIVE", "PAUSED"].includes(game.status ?? "")
+              )
+              .map((game) => {
+                const home =
+                  teams.find((team) => team.id === game.home_team_id)
+                    ?.short_name ||
+                  teams.find((team) => team.id === game.home_team_id)?.name ||
+                  "TBA";
+
+                const away =
+                  teams.find((team) => team.id === game.away_team_id)
+                    ?.short_name ||
+                  teams.find((team) => team.id === game.away_team_id)?.name ||
+                  "TBA";
+
+                return (
+                  <div
+                    key={game.id}
+                    className={`rounded-3xl border p-5 ${
+                      game.status === "LIVE"
+                        ? "border-red-500/40 bg-red-500/10"
+                        : game.status === "PAUSED"
+                        ? "border-yellow-500/30 bg-yellow-500/10"
+                        : "border-white/10 bg-white/5"
+                    }`}
+                  >
+                    <div className="flex flex-col justify-between gap-5 lg:flex-row lg:items-center">
+                      <div>
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="rounded-full bg-orange-500/15 px-3 py-1 text-xs font-black text-orange-300">
+                            {game.game_code}
+                          </span>
+
+                          <span className="rounded-full bg-white/10 px-3 py-1 text-xs font-black">
+                            {game.status}
+                          </span>
+                        </div>
+
+                        <h3 className="mt-3 text-2xl font-black">
+                          {home} vs {away}
+                        </h3>
+
+                        <p className="mt-2 text-sm text-gray-400">
+                          📅 {game.game_date || "No date"} · 🕒{" "}
+                          {game.game_time?.slice(0, 5) || "No time"} · 🏟️{" "}
+                          {game.court || "TBA"}
+                        </p>
+
+                        {game.youtube_url && (
+                          <p className="mt-2 text-xs font-bold text-green-400">
+                            ✓ YouTube Live link added
+                          </p>
+                        )}
+                      </div>
+
+                      <div className="flex flex-wrap gap-2">
+                        <button
+                          type="button"
+                          onClick={() => void handleGameChange(game.id)}
+                          className="rounded-xl border border-white/15 bg-white/10 px-4 py-3 text-sm font-black"
+                        >
+                          EDIT
+                        </button>
+
+                        {game.status === "UPCOMING" ? (
+                          <button
+                            type="button"
+                            disabled={savingGame}
+                            onClick={() => void startSelectedGame(game.id)}
+                            className="rounded-xl bg-green-500 px-5 py-3 text-sm font-black text-black disabled:opacity-40"
+                          >
+                            START GAME →
+                          </button>
+                        ) : (
+                          <a
+                            href={`/scorer?game=${game.id}`}
+                            className="rounded-xl bg-red-500 px-5 py-3 text-sm font-black"
+                          >
+                            OPEN SCORER →
+                          </a>
+                        )}
+
+                        {game.status !== "CANCELLED" &&
+                          game.status !== "FINISHED" && (
+                            <button
+                              type="button"
+                              onClick={() => void cancelGame(game.id)}
+                              className="rounded-xl border border-yellow-500/40 px-4 py-3 text-sm font-black text-yellow-300"
+                            >
+                              CANCEL
+                            </button>
+                          )}
+
+                        <button
+                          type="button"
+                          onClick={() => void deleteGame(game.id)}
+                          className="rounded-xl border border-red-500/40 px-4 py-3 text-sm font-black text-red-300"
+                        >
+                          DELETE
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+
+            {games.filter((game) =>
+              ["UPCOMING", "LIVE", "PAUSED"].includes(game.status ?? "")
+            ).length === 0 && (
+              <div className="rounded-3xl border border-white/10 bg-white/5 p-7 text-gray-400">
+                No upcoming or live games. Use + ADD GAME.
+              </div>
+            )}
+          </div>
+        </section>
+
         <section className="mt-10 rounded-3xl border border-white/10 bg-white/10 p-6">
           <label className="mb-2 block font-bold text-gray-300">
             Select Game
@@ -728,9 +1075,18 @@ export default function AdminGamesPage() {
 
           <select
             value={selectedGameId}
-            onChange={(e) => void handleGameChange(e.target.value)}
+            onChange={(e) => {
+              if (!e.target.value) {
+                newGame();
+                return;
+              }
+
+              void handleGameChange(e.target.value);
+            }}
             className="w-full rounded-2xl border border-white/10 bg-[#081321] px-4 py-4 font-black"
           >
+            <option value="">+ Create New Game</option>
+
             {games.map((game) => {
               const home =
                 teams.find((team) => team.id === game.home_team_id)?.name ??
@@ -750,7 +1106,7 @@ export default function AdminGamesPage() {
           </select>
         </section>
 
-        {selectedGame && (
+        {(selectedGame || !selectedGameId) && (
           <>
             <section className="mt-8 rounded-3xl border border-orange-500/20 bg-white/10 p-6 md:p-8">
               <div className="flex flex-wrap items-center justify-between gap-4">
@@ -760,7 +1116,9 @@ export default function AdminGamesPage() {
                   </p>
 
                   <h2 className="mt-2 text-3xl font-black">
-                    Edit {form.game_code}
+                    {selectedGameId
+                      ? `Edit ${form.game_code || "Game"}`
+                      : "Add New Game"}
                   </h2>
                 </div>
 
@@ -770,6 +1128,23 @@ export default function AdminGamesPage() {
               </div>
 
               <div className="mt-8 grid gap-5 md:grid-cols-2 lg:grid-cols-3">
+                <Field label="Tournament">
+                  <select
+                    value={form.tournament_id}
+                    onChange={(e) =>
+                      updateForm("tournament_id", e.target.value)
+                    }
+                    className={inputClass}
+                  >
+                    <option value="">No Tournament</option>
+                    {tournaments.map((tournament) => (
+                      <option key={tournament.id} value={tournament.id}>
+                        {tournament.name}
+                      </option>
+                    ))}
+                  </select>
+                </Field>
+
                 <Field label="Game Code">
                   <input
                     value={form.game_code}
@@ -891,6 +1266,7 @@ export default function AdminGamesPage() {
                     <option value="LIVE">LIVE</option>
                     <option value="PAUSED">PAUSED</option>
                     <option value="FINISHED">FINISHED</option>
+                    <option value="CANCELLED">CANCELLED</option>
                   </select>
                 </Field>
 
@@ -1006,12 +1382,17 @@ export default function AdminGamesPage() {
                 disabled={savingGame}
                 className="mt-8 w-full rounded-2xl bg-orange-500 px-6 py-5 text-lg font-black transition active:scale-[0.99] disabled:opacity-50"
               >
-                {savingGame ? "SAVING GAME..." : "SAVE GAME DETAILS"}
+                {savingGame
+                  ? "SAVING GAME..."
+                  : selectedGameId
+                  ? "SAVE GAME DETAILS"
+                  : "ADD GAME"}
               </button>
             </section>
 
-            <div className="mt-8 grid gap-8 xl:grid-cols-2">
-              <TeamRosterPanel
+            {selectedGameId && (
+              <div className="mt-8 grid gap-8 xl:grid-cols-2">
+                <TeamRosterPanel
                 teamName={homeTeam?.name ?? "Home Team"}
                 teamId={form.home_team_id}
                 players={homePlayers}
@@ -1057,8 +1438,9 @@ export default function AdminGamesPage() {
                     awayPlayers
                   )
                 }
-              />
-            </div>
+                />
+              </div>
+            )}
           </>
         )}
       </div>
