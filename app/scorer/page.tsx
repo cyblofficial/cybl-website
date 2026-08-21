@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useSearchParams } from "next/navigation";
 import { supabase } from "@/app/lib/supabase";
 
 type Quarter = "Q1" | "Q2" | "Q3" | "Q4" | "OT";
@@ -380,8 +379,6 @@ function calculateStats(
 }
 
 export default function ScorerPage() {
-  const searchParams = useSearchParams();
-const requestedGameId = searchParams.get("game");
   const [teams, setTeams] = useState<TeamRow[]>([]);
   const [players, setPlayers] = useState<PlayerRow[]>([]);
   const [games, setGames] = useState<GameRow[]>([]);
@@ -684,24 +681,29 @@ const requestedGameId = searchParams.get("game");
     setPlayers(loadedPlayers);
     setGames(loadedGames);
 
+    const requestedGameId =
+      typeof window !== "undefined"
+        ? new URLSearchParams(window.location.search).get("game")
+        : null;
+
     if (loadedGames.length > 0) {
-  const requestedGame = requestedGameId
-    ? loadedGames.find((game) => game.id === requestedGameId)
-    : null;
+      const requestedGame = requestedGameId
+        ? loadedGames.find((game) => game.id === requestedGameId)
+        : null;
 
-  const firstGame =
-    requestedGame ??
-    loadedGames.find((game) => game.status === "LIVE") ??
-    loadedGames[0];
+      const firstGame =
+        requestedGame ??
+        loadedGames.find((game) => game.status === "LIVE") ??
+        loadedGames[0];
 
-  setSelectedGameId(firstGame.id);
-  applyGameState(firstGame);
+      setSelectedGameId(firstGame.id);
+      applyGameState(firstGame);
 
-  await Promise.all([
-    loadGameEvents(firstGame.id),
-    loadGameRosters(firstGame.id),
-  ]);
-}
+      await Promise.all([
+        loadGameEvents(firstGame.id),
+        loadGameRosters(firstGame.id),
+      ]);
+    }
 
     setLoading(false);
   }
