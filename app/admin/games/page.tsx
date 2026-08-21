@@ -374,6 +374,78 @@ export default function AdminGamesPage() {
     setRosters((data ?? []) as GameRosterRow[]);
   }
 
+  async function ensureAutomaticRoster(
+    gameId: string,
+    teamId: string,
+    teamPlayers: PlayerRow[]
+  ) {
+    if (!gameId || !teamId || teamPlayers.length === 0) return;
+
+    const { data: existingRows, error: existingError } = await supabase
+      .from("game_rosters")
+      .select("*")
+      .eq("game_id", gameId)
+      .eq("team_id", teamId);
+
+    if (existingError) {
+      setErrorMessage(existingError.message);
+      return;
+    }
+
+    const existing = (existingRows ?? []) as GameRosterRow[];
+    const existingByPlayer = new Map(
+      existing.map((row) => [row.player_id, row])
+    );
+
+    const rowsToUpsert = teamPlayers.map((player) => {
+      const old = existingByPlayer.get(player.id);
+
+      return {
+        game_id: gameId,
+        team_id: teamId,
+        player_id: player.id,
+        is_selected: true,
+        is_starter: old?.is_starter ?? false,
+        is_on_court: old?.is_starter ?? false,
+      };
+    });
+
+    const { error: upsertError } = await supabase
+      .from("game_rosters")
+      .upsert(rowsToUpsert, {
+        onConflict: "game_id,team_id,player_id",
+      });
+
+    if (upsertError) {
+      setErrorMessage(upsertError.message);
+      return;
+    }
+
+    await loadRosters(gameId);
+  }
+
+  async function prepareGameRosters(
+    gameId: string,
+    homeTeamId: string,
+    awayTeamId: string
+  ) {
+    const home = players.filter(
+      (player) =>
+        player.team_id === homeTeamId &&
+        (player.is_active ?? true)
+    );
+
+    const away = players.filter(
+      (player) =>
+        player.team_id === awayTeamId &&
+        (player.is_active ?? true)
+    );
+
+    await ensureAutomaticRoster(gameId, homeTeamId, home);
+    await ensureAutomaticRoster(gameId, awayTeamId, away);
+    await loadRosters(gameId);
+  }
+
   async function handleGameChange(gameId: string) {
     const game = games.find((item) => item.id === gameId);
 
@@ -384,7 +456,11 @@ export default function AdminGamesPage() {
     setMessage("");
     setErrorMessage("");
 
-    await loadRosters(gameId);
+    await prepareGameRosters(
+      gameId,
+      game.home_team_id ?? "",
+      game.away_team_id ?? ""
+    );
   }
 
   function updateForm<K extends keyof GameForm>(
@@ -467,7 +543,16 @@ export default function AdminGamesPage() {
       setSelectedGameId(createdGame.id);
       fillForm(createdGame);
       setRosters([]);
-      setMessage("✓ New game created successfully.");
+
+      await prepareGameRosters(
+        createdGame.id,
+        createdGame.home_team_id ?? "",
+        createdGame.away_team_id ?? ""
+      );
+
+      setMessage(
+        "✓ New game created. Active players were added automatically — choose only the Starting 5."
+      );
       setSavingGame(false);
       return;
     }
@@ -491,7 +576,15 @@ export default function AdminGamesPage() {
       )
     );
 
-    setMessage("✓ Game details saved successfully.");
+    await prepareGameRosters(
+      selectedGameId,
+      form.home_team_id,
+      form.away_team_id
+    );
+
+    setMessage(
+      "✓ Game details saved. Active team players are in the game roster automatically."
+    );
     setSavingGame(false);
   }
 
@@ -1534,7 +1627,7 @@ function TeamRosterPanel({
           <h2 className="mt-2 text-3xl font-black">{teamName}</h2>
 
           <p className="mt-2 text-gray-400">
-            {selectedCount} selected · {starterCount}/5 starters
+            {players.length} active players · {starterCount}/5 starters
           </p>
         </div>
 
@@ -1554,7 +1647,7 @@ function TeamRosterPanel({
           onClick={onSelectAll}
           className="rounded-2xl border border-white/10 bg-[#081321] px-4 py-3 font-black"
         >
-          SELECT ALL
+          SELECT ALL PLAYERS
         </button>
 
         <button
@@ -1601,14 +1694,7 @@ function TeamRosterPanel({
                   </p>
 
                   <p className="mt-1 text-sm text-gray-400">
-                    {[
-                      player.position,
-                      player.height_cm
-                        ? `${player.height_cm} cm`
-                        : null,
-                    ]
-                      .filter(Boolean)
-                      .join(" · ") || player.cybl_id}
+                    Game roster
                   </p>
                 </div>
 
