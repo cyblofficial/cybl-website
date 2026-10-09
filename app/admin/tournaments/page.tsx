@@ -24,7 +24,10 @@ type Tournament = {
 };
 
 type UploadField = "poster_url" | "regulations_ge_url" | "regulations_en_url" | "presentation_url";
-type FormData = Omit<Tournament, "id">;
+type FormData = {
+  [K in Exclude<keyof Tournament, "id">]:
+    K extends "is_featured" | "is_published" ? boolean : string;
+};
 const BUCKET = "tournament-media";
 const emptyForm: FormData = {
   name: "", slug: "", city: "Telavi", country: "Georgia", venue: "",
@@ -51,7 +54,7 @@ function Input({ label, value, onChange, placeholder = "", type = "text" }: {
 
 export default function AdminTournamentsPage() {
   const [tournaments, setTournaments] = useState<Tournament[]>([]);
-  const [form, setForm] = useState<FormData>(emptyForm);
+  const [form, setForm] = useState<FormData>({ ...emptyForm });
   const [editingId, setEditingId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -127,7 +130,7 @@ export default function AdminTournamentsPage() {
     const payload = {
       ...form,
       name: form.name.trim(),
-      slug: (form.slug || "").trim() || generateSlug(form.name),
+      slug: form.slug.trim() || generateSlug(form.name),
       city: form.city || null, country: form.country || null, venue: form.venue || null,
       start_date: form.start_date || null, end_date: form.end_date || null,
       age_group: form.age_group || null, registration_status: form.registration_status || "OPEN",
