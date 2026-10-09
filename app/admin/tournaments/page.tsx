@@ -127,7 +127,7 @@ export default function AdminTournamentsPage() {
     const payload = {
       ...form,
       name: form.name.trim(),
-      slug: form.slug.trim() || generateSlug(form.name),
+      slug: (form.slug || "").trim() || generateSlug(form.name),
       city: form.city || null, country: form.country || null, venue: form.venue || null,
       start_date: form.start_date || null, end_date: form.end_date || null,
       age_group: form.age_group || null, registration_status: form.registration_status || "OPEN",
